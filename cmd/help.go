@@ -1,41 +1,64 @@
-/*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
 	"fmt"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/glamour"
-	"github.com/gitmobkab/lol/tui"
+	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
+
+	"github.com/gitmobkab/lol/tui/markdown_viewer"
 )
+
+/**/
+const HELP_FORMAT string = `
+# %s - %s
+
+> %s
+
+%s
+`
 
 // helpCmd represents the help command
 var helpCmd = &cobra.Command{
 	Use:   "help [command]",
 	Short: "opens the help screen for a command",
-	Long: `# Opens the help screen for a command.
+    Args: func(cmd *cobra.Command, args []string) error {
+        if len(args) > 1 {
+            return fmt.Errorf("Too many arguments, expected at most one argument")
+        }
+        return nil
+    },
+	Long: `If no command is provided, it shows the help for itself.
 
-If no command is provided, it shows the help for itself.`,
-	Run: func(cmd *cobra.Command, args []string) {
-        target := cmd
-        if len(args) > 0 {
-            target, _, _ = rootCmd.Find(args)
+# Examples:
+
+- lol help
+
+- lol help serve
+
+- lol help help <- **same as lol help**`,
+
+	RunE: func(cmd *cobra.Command, args []string) error {
+        var target *cobra.Command
+        var err error = nil
+
+        if len(args) == 1 {
+            target, _, err = rootCmd.Find(args)
+            if err != nil{
+                return err
+            }
+        } else {
+            target = cmd
         }
 
-        rendered, err := glamour.Render(target.Long, "dark")
-        if err != nil {
-            fmt.Println(target.Long)
-            return
-        }
+        content := fmt.Sprintf(HELP_FORMAT, 
+            target.Name(), target.Use, target.Short, target.Long)
 
         p := tea.NewProgram(
-            tui.NewHelpModel(rendered),
-            tea.WithAltScreen(),
+            markdown_viewer.NewMarkdownViewer(content),
         )
-        p.Run()
+        
+        _, err = p.Run()
+        return err
     },
 }
 

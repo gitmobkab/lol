@@ -1,7 +1,3 @@
-/*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
@@ -14,9 +10,8 @@ import (
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Starts the server.",
-	Long: `# Starts the server.
+	Long: `This command will start the server and listen for **incoming requests**. 
 
-This command will start the server and listen for **incoming requests**. 
 You can specify additional flags to configure the server behavior.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("serve called")

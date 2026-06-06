@@ -1,7 +1,3 @@
-/*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
@@ -12,14 +8,19 @@ import (
 
 // joinCmd represents the join command
 var joinCmd = &cobra.Command{
-	Use:   "join",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Use:   "join IP[:PORT]",
+	Short: "Joins a room with the given IP address and port",
+	Long: `The ip address need to be in the format IP:PORT.
+Where *IP* is a valid IPv4 address, while **PORT** is an optional number between 1 and 65535.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Unless specified, the port will default to 8080.
+
+# Examples:
+
+- lol join
+- lol join 192.168.1.100
+- lol join 192.168.1.100:8080
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("join called")
 	},
@@ -27,14 +28,4 @@ to quickly create a Cobra application.`,
 
 func init() {
 	rootCmd.AddCommand(joinCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// joinCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// joinCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
