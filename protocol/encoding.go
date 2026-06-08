@@ -10,7 +10,7 @@ func Encode(msgType MessageType, payload any) ([]byte, error) {
     if err != nil {
         return nil, err
     }
-    return json.Marshal(Envelope{Type: msgType, version: ProtocolVersion, Data: data})
+    return json.Marshal(Envelope{Type: msgType, Version: ProtocolVersion, Data: data})
 }
 
 func DecodeEnvelope(raw []byte) (MessageType, json.RawMessage, error) {
@@ -18,8 +18,8 @@ func DecodeEnvelope(raw []byte) (MessageType, json.RawMessage, error) {
     if err := json.Unmarshal(raw, &env); err != nil {
         return "", nil, err
     }
-    if env.version != ProtocolVersion {
-        return "", nil, fmt.Errorf("incompatible protocol version, expected %d, got %d", ProtocolVersion, env.version)
+    if env.Version != ProtocolVersion {
+        return "", nil, fmt.Errorf("incompatible protocol version, expected %d, got %d", ProtocolVersion, env.Version)
     }
     return env.Type, env.Data, nil
 }

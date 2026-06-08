@@ -22,7 +22,7 @@ const (
 
 type Envelope struct {
     Type MessageType     `json:"type"`
-    version int           `json:"version"`
+    Version int           `json:"version"`
     Data json.RawMessage `json:"data"`
 }
 
