@@ -9,9 +9,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/gitmobkab/lol/server"
-	server_tui "github.com/gitmobkab/lol/tui/server_tui"
-	"github.com/gitmobkab/lol/tui/choice_picker"
+	"github.com/gitmobkab/lol/internal/server"
+	server_tui "github.com/gitmobkab/lol/internal/tui/server_tui"
+	"github.com/gitmobkab/lol/internal/tui/choice_picker"
 	"github.com/spf13/cobra"
 )
 
@@ -30,10 +30,10 @@ You can specify additional flags to configure the server behavior.`,
 		}
 
 		logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-		s := server.New(logger)
+		server_obj := server.New(logger)
 
 		errCh := make(chan error, 1)
-		go func() { errCh <- s.Start(addr) }()
+		go func() { errCh <- server_obj.Start(addr) }()
 
 		select {
 		case err := <-errCh:
@@ -42,7 +42,7 @@ You can specify additional flags to configure the server behavior.`,
 		}
 
 		initialLogs := []string{"join with: lol join " + addr}
-		return server_tui.NewServerModel(s.Events, initialLogs).Run()
+		return server_tui.NewServerModel(server_obj.Events, initialLogs).Run()
 	},
 }
 

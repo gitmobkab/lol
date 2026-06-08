@@ -1,10 +1,6 @@
-/*
-Copyright © 2026 NAME HERE <>
-
-*/
 package main
 
-import "github.com/gitmobkab/lol/cmd"
+import "github.com/gitmobkab/lol/internal/cmd"
 
 func main() {
 	cmd.Execute()

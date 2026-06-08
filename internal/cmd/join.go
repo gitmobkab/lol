@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gitmobkab/lol/client"
-	"github.com/gitmobkab/lol/tui"
+	"github.com/gitmobkab/lol/internal/client"
+	"github.com/gitmobkab/lol/internal/tui"
 	"github.com/spf13/cobra"
 )
 

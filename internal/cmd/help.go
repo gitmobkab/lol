@@ -5,7 +5,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 
-	"github.com/gitmobkab/lol/tui/markdown_viewer"
+	"github.com/gitmobkab/lol/internal/tui/markdown_viewer"
 )
 
 /**/

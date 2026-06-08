@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/gitmobkab/lol/protocol"
+	"github.com/gitmobkab/lol/internal/protocol"
 	"github.com/google/uuid"
 )
 

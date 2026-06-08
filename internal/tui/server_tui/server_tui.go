@@ -8,7 +8,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	lolserver "github.com/gitmobkab/lol/server"
+	lolserver "github.com/gitmobkab/lol/internal/server"
 )
 
 type serverTickMsg struct{}

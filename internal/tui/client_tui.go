@@ -10,8 +10,8 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	lolclient "github.com/gitmobkab/lol/client"
-	"github.com/gitmobkab/lol/protocol"
+	lolclient "github.com/gitmobkab/lol/internal/client"
+	"github.com/gitmobkab/lol/internal/protocol"
 	"github.com/google/uuid"
 )
 

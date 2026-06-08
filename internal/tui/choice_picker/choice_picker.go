@@ -6,7 +6,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/gitmobkab/lol/utils"
+	"github.com/gitmobkab/lol/internal/utils"
 )
 
 type keyMap struct {

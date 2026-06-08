@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gitmobkab/lol/data"
+	"github.com/gitmobkab/lol/internal/data"
 	"github.com/spf13/cobra"
 )
 

@@ -8,7 +8,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
-	"github.com/gitmobkab/lol/protocol"
+	"github.com/gitmobkab/lol/internal/protocol"
 )
 
 
