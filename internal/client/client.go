@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
@@ -20,6 +21,7 @@ func Connect(ctx context.Context, addr, name string, logger *slog.Logger) (*Clie
 
 	client := &Client{
 		conn:   conn,
+		Name:   name,
 		Events: make(chan Event, 64),
 		logger: logger.With("package", "lol::client"),
 	}
@@ -55,6 +57,9 @@ func Connect(ctx context.Context, addr, name string, logger *slog.Logger) (*Clie
 		return nil, err
 	}
 	client.Self = syncPayload.Self
+	for i := range syncPayload.Members {
+		syncPayload.Members[i].Name = ansi.Strip(syncPayload.Members[i].Name)
+	}
 	client.members = syncPayload.Members
 
 	return client, nil

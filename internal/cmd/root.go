@@ -34,7 +34,7 @@ var rootCmd = &cobra.Command{
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		if versionFull {
-			fmt.Println(data.GetDetailedVersion())
+			fmt.Println("lol", data.GetDetailedVersion())
 			return
 		}
 		cmd.Help()
@@ -49,5 +49,5 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().BoolVar(&versionFull, "version-full", false, "Print detailed version info and exit")
+	rootCmd.Flags().BoolVarP(&versionFull, "version-full", "V", false, "Print detailed version info and exit")
 }

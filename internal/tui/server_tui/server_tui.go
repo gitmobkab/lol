@@ -8,6 +8,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	lolserver "github.com/gitmobkab/lol/internal/server"
 )
 
@@ -84,12 +85,12 @@ func (m ServerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case lolserver.ClientConnected:
 			m.clients++
-			line = connectedLineStyle.Render(fmt.Sprintf("%s  + %s connected", ts, msg.Name))
+			line = connectedLineStyle.Render(fmt.Sprintf("%s  + %s connected", ts, ansi.Strip(msg.Name)))
 		case lolserver.ClientDisconnected:
 			if m.clients > 0 {
 				m.clients--
 			}
-			line = disconnectedLineStyle.Render(fmt.Sprintf("%s  - %s disconnected", ts, msg.Name))
+			line = disconnectedLineStyle.Render(fmt.Sprintf("%s  - %s disconnected", ts, ansi.Strip(msg.Name)))
 		}
 		if line != "" {
 			m.logs = append(m.logs, line)

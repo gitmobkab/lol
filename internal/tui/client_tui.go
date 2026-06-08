@@ -10,6 +10,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	lolclient "github.com/gitmobkab/lol/internal/client"
 	"github.com/gitmobkab/lol/internal/protocol"
 	"github.com/google/uuid"
@@ -126,12 +127,13 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case protocol.BroadcastMessage:
 			p := msg.Payload.(protocol.BroadcastPayload)
-			m = addMessage(m, fmt.Sprintf("%s  %s: %s", ts, m.memberName(p.From), p.Body))
+			m = addMessage(m, fmt.Sprintf("%s  %s: %s", ts, m.memberName(p.From), ansi.Strip(p.Body)))
 		case protocol.WhisperMessage:
 			p := msg.Payload.(protocol.WhisperPayload)
-			m = addMessage(m, dmStyle.Render(fmt.Sprintf("%s  [DM] %s: %s", ts, m.memberName(p.From), p.Body)))
+			m = addMessage(m, dmStyle.Render(fmt.Sprintf("%s  [DM] %s: %s", ts, m.memberName(p.From), ansi.Strip(p.Body))))
 		case protocol.JoinMessage:
 			p := msg.Payload.(protocol.JoinPayload)
+			p.Name = ansi.Strip(p.Name)
 			m.members = append(m.members, protocol.Member{Name: p.Name, ID: p.Id})
 			m = addMessage(m, systemStyle.Render(fmt.Sprintf("%s  → %s joined", ts, p.Name)))
 		case protocol.LeaveMessage:
@@ -197,6 +199,8 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			} else {
 				m.client.SendChat(m.ctx, text)
+				ts := time.Now().Format("15:04")
+				m = addMessage(m, fmt.Sprintf("%s  %s: %s", ts, m.client.Name, text))
 			}
 		}
 	}

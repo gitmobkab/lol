@@ -19,6 +19,7 @@ type Event struct {
 type Client struct {
 	conn    *websocket.Conn
 	Self    uuid.UUID
+	Name    string
 	mu      sync.RWMutex
 	members []protocol.Member
 	Events  chan Event
