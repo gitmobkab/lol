@@ -1,12 +1,18 @@
 package cmd
 
 import (
-	"fmt"
+	"context"
+	"log/slog"
+	"os"
+	"strings"
 
+	"github.com/gitmobkab/lol/client"
+	"github.com/gitmobkab/lol/tui"
 	"github.com/spf13/cobra"
 )
 
-// joinCmd represents the join command
+var name string
+
 var joinCmd = &cobra.Command{
 	Use:   "join IP[:PORT]",
 	Short: "Joins a room with the given IP address and port",
@@ -17,15 +23,35 @@ Unless specified, the port will default to 8080.
 
 # Examples:
 
-- lol join
 - lol join 192.168.1.100
-- lol join 192.168.1.100:8080
+- lol join 192.168.1.100 --name Alice
+- lol join 192.168.1.100:8080 --name Alice
 `,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("join called")
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		addr := args[0]
+		if !strings.Contains(addr, ":") {
+			addr += ":8080"
+		}
+
+		logger := slog.Default()
+		ctx := context.Background()
+
+		c, err := client.Connect(ctx, "ws://"+addr, name, logger)
+		if err != nil {
+			return err
+		}
+		defer c.Close()
+
+		go c.ReadLoop(ctx)
+
+		return tui.NewClientModel(c, ctx).Run()
 	},
 }
 
 func init() {
+	hostname, _ := os.Hostname()
+
 	rootCmd.AddCommand(joinCmd)
+	joinCmd.Flags().StringVarP(&name, "name", "n", hostname, "Your display name")
 }
