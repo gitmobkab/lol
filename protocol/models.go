@@ -10,11 +10,12 @@ type MessageType string
 const ProtocolVersion int = 1
 
 const (
-    RegisterMesage MessageType = "register"
+    RegisterMessage MessageType = "register"
 	JoinMessage MessageType = "join"
     LeaveMessage MessageType = "leave"
     SyncMessage MessageType = "sync"
-    BroadcastMessage MessageType = "msg"
+    ChatMessage MessageType = "chat"
+    BroadcastMessage MessageType = "broadcast"
     DMsMessage MessageType = "dm"
     WhisperMessage MessageType = "whisper"
 	ErrorMessage MessageType = "error"
@@ -49,7 +50,11 @@ type SyncPayload struct {
     Members []Member  `json:"members"`
 }
 
-type MsgPayload struct {
+type ChatPayload struct {
+    Body string    `json:"body"`
+}
+
+type BroadcastPayload struct {
     From uuid.UUID `json:"from"`
     Body string    `json:"body"`
 }
@@ -74,7 +79,8 @@ type Payload interface{
 	JoinPayload |
 	LeavePayload |
 	SyncPayload |
-	MsgPayload |
+    ChatPayload |
+	BroadcastPayload |
 	DMsPayload |
 	WhisperPayload | 
 	ErrorPayload 
