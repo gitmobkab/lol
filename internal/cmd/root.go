@@ -49,5 +49,6 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.SetVersionTemplate("lol {{.Version}}")
 	rootCmd.Flags().BoolVarP(&versionFull, "version-full", "V", false, "Print detailed version info and exit")
 }
