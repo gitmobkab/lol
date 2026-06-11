@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/gitmobkab/lol/internal/client"
-	"github.com/gitmobkab/lol/internal/tui"
+	client_tui "github.com/gitmobkab/lol/internal/tui/client_tui"
 	"github.com/spf13/cobra"
 )
 
@@ -45,7 +45,7 @@ Unless specified, the port will default to 8080.
 
 		go c.ReadLoop(ctx)
 
-		return tui.NewClientModel(c, ctx).Run()
+		return client_tui.NewClientModel(c, ctx).Run()
 	},
 }
 
