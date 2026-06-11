@@ -41,14 +41,16 @@ func waitForClientEvent(events <-chan lolclient.Event) tea.Cmd {
 }
 
 func NewClientModel(c *lolclient.Client, ctx context.Context) ClientModel {
+	km := DefaultKeyMap()
+
 	text_area := textarea.New()
-	text_area.Placeholder = "message…  enter to send  ctrl+enter for newline  /dm <name> <msg> for DMs"
+	text_area.Placeholder = "message…  enter to send  shift+enter for newline"
 	text_area.ShowLineNumbers = false
 	text_area.Prompt = ""
 	text_area.SetHeight(1)
 	text_area.DynamicHeight = true
 	text_area.MinHeight = 1
-	text_area.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("ctrl+enter"), key.WithHelp("ctrl+enter", "insert newline"))
+	text_area.KeyMap.InsertNewline = km.NewLine
 	text_area.Focus()
 
 	return ClientModel{
@@ -57,6 +59,7 @@ func NewClientModel(c *lolclient.Client, ctx context.Context) ClientModel {
 		members: c.Members(),
 		input:   text_area,
 		histIdx: -1,
+		keyMap:  km,
 	}
 }
 
@@ -216,38 +219,65 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "ctrl+c":
+		km := m.keyMap
+		if key.Matches(msg, km.Quit) {
 			return m, tea.Quit
+		}
 
-		case "enter":
-			text := strings.TrimSpace(m.input.Value())
-			m.input.Reset()
-			if text == "" {
-				break
-			}
-			m.history = append(m.history, text)
-			m.histIdx = -1
-			m.draft = ""
-			if strings.HasPrefix(text, "/") {
-				var cmd tea.Cmd
-				m, cmd = dispatch(m, text[1:])
-				return m, cmd
-			}
-			ts := time.Now().Format("15:04")
-			m.client.SendChat(m.ctx, text)
-			m = addMessage(m, m.client.Name, text, ts, true, message_bubble.KindBroadcast)
-
-		case "up":
-			if m.input.Line() == 0 {
-				m.historyPrev()
+		if m.scrollMode {
+			if key.Matches(msg, km.FocusInput) {
+				m.scrollMode = false
+				m.input.Focus()
 				return m, nil
 			}
-
-		case "down":
-			if m.histIdx >= 0 && m.input.Line() == m.input.LineCount()-1 {
-				m.historyNext()
+			// printable character re-focuses input and falls through to input.Update
+			if len([]rune(msg.String())) == 1 {
+				m.scrollMode = false
+				m.input.Focus()
+			} else {
+				m.viewport, viewCmd = m.viewport.Update(msg)
+				return m, viewCmd
+			}
+		} else {
+			switch {
+			case key.Matches(msg, km.ScrollMode):
+				m.scrollMode = true
+				m.input.Blur()
 				return m, nil
+
+			case key.Matches(msg, km.Send):
+				text := strings.TrimSpace(m.input.Value())
+				m.input.Reset()
+				if text == "" {
+					break
+				}
+				m.history = append(m.history, text)
+				m.histIdx = -1
+				m.draft = ""
+				if strings.HasPrefix(text, "/") {
+					var cmd tea.Cmd
+					m, cmd = dispatch(m, text[1:])
+					return m, cmd
+				}
+				ts := time.Now().Format("15:04")
+				m.client.SendChat(m.ctx, text)
+				m = addMessage(m, m.client.Name, text, ts, true, message_bubble.KindBroadcast)
+
+			case key.Matches(msg, km.HistoryPrev):
+				if m.input.Line() == 0 {
+					m.historyPrev()
+					return m, nil
+				}
+				m.input, inputCmd = m.input.Update(msg)
+				return m, inputCmd
+
+			case key.Matches(msg, km.HistoryNext):
+				if m.histIdx >= 0 && m.input.Line() == m.input.LineCount()-1 {
+					m.historyNext()
+					return m, nil
+				}
+				m.input, inputCmd = m.input.Update(msg)
+				return m, inputCmd
 			}
 		}
 	}
@@ -312,7 +342,11 @@ func (m ClientModel) View() tea.View {
 		m.viewport.View(),
 		m.renderMembers(),
 	)
-	bottom := inputBarStyle.Width(m.width).Render(m.renderInput())
+	bar := inputBarStyle
+	if m.scrollMode {
+		bar = inputBarBlurredStyle
+	}
+	bottom := bar.Width(m.width).Render(m.renderInput())
 
 	overlay := m.renderAutocomplete()
 	if overlay != "" {

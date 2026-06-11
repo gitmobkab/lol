@@ -22,7 +22,9 @@ type ClientModel struct {
 	history  []string
 	histIdx  int // -1 = editing current draft
 	draft    string
-	width    int
-	height   int
-	ready    bool
+	width      int
+	height     int
+	ready      bool
+	scrollMode bool
+	keyMap     KeyMap
 }

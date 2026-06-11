@@ -10,6 +10,10 @@ var (
 	inputBarStyle = lipgloss.NewStyle().
 			BorderTop(true).
 			BorderStyle(lipgloss.NormalBorder())
+	inputBarBlurredStyle = lipgloss.NewStyle().
+				BorderTop(true).
+				BorderStyle(lipgloss.NormalBorder()).
+				BorderForeground(lipgloss.Color("#333333"))
 	shortIDStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
 
 	overlayStyle     = lipgloss.NewStyle().BorderTop(true).BorderBottom(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("#444444"))
