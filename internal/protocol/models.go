@@ -19,6 +19,8 @@ const (
     DMsMessage MessageType = "dm"
     WhisperMessage MessageType = "whisper"
 	ErrorMessage MessageType = "error"
+	PingMessage    MessageType = "ping"
+	PongMessage    MessageType = "pong"
 )
 
 type Envelope struct {
@@ -74,6 +76,9 @@ type ErrorPayload struct{
 	Body any `json:"body"`
 }
 
+type PingPayload struct{}
+type PongPayload struct{}
+
 type Payload interface{
 	RegisterPayload |
 	JoinPayload |
@@ -82,6 +87,8 @@ type Payload interface{
     ChatPayload |
 	BroadcastPayload |
 	DMsPayload |
-	WhisperPayload | 
-	ErrorPayload 
+	WhisperPayload |
+	ErrorPayload |
+	PingPayload |
+	PongPayload
 }

@@ -207,6 +207,8 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case protocol.ErrorMessage:
 			p := msg.Payload.(protocol.ErrorPayload)
 			m = addMessage(m, "System", fmt.Sprintf("[error] %v", p.Body), ts, false, message_bubble.KindSystem)
+		case protocol.PongMessage:
+			m = addMessage(m, "System", "server responded: Pong", ts, false, message_bubble.KindSystem)
 		}
 		return m, waitForClientEvent(m.client.Events)
 

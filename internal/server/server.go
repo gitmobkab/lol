@@ -210,6 +210,9 @@ func (server *Server) HandleClientLoop(
             }
             server.send(ctx, target, protocol.WhisperMessage, whisper_payload)
 
+        case protocol.PingMessage:
+            server.send(ctx, client, protocol.PongMessage, protocol.PongPayload{})
+
         default:
             server.logger.Error("Received unauthorized message type",
                 "Id", client.id,

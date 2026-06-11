@@ -24,7 +24,7 @@ type Command struct {
 var registry = map[string]Command{
 	"ping": {
 		Usage: "ping",
-		Help:  "echo pong locally",
+		Help:  "send a ping request to the server",
 		Run:   cmdPing,
 	},
 	"dm": {
@@ -71,8 +71,7 @@ func dispatch(m ClientModel, input string) (ClientModel, tea.Cmd) {
 }
 
 func cmdPing(m ClientModel, _ []string, _ string) (ClientModel, tea.Cmd) {
-	ts := time.Now().Format("15:04")
-	m = addMessage(m, "System", "Pong!", ts, false, message_bubble.KindSystem)
+	m.client.SendPing(m.ctx)
 	return m, nil
 }
 

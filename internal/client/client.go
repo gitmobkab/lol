@@ -136,6 +136,9 @@ func (client *Client) ReadLoop(ctx context.Context) {
 			}
 			client.Events <- Event{Type: msgType, Payload: p}
 
+		case protocol.PongMessage:
+			client.Events <- Event{Type: msgType, Payload: protocol.PongPayload{}}
+
 		default:
 			client.logger.Warn("unexpected message type", "type", msgType)
 		}
@@ -152,6 +155,14 @@ func (client *Client) SendChat(ctx context.Context, body string) error {
 
 func (client *Client) SendDM(ctx context.Context, to uuid.UUID, body string) error {
 	encoded, err := protocol.Encode(protocol.DMsMessage, protocol.DMsPayload{To: to, Body: body})
+	if err != nil {
+		return err
+	}
+	return client.conn.Write(ctx, websocket.MessageText, encoded)
+}
+
+func (client *Client) SendPing(ctx context.Context) error {
+	encoded, err := protocol.Encode(protocol.PingMessage, protocol.PingPayload{})
 	if err != nil {
 		return err
 	}
