@@ -12,7 +12,6 @@ import (
 	lolserver "github.com/gitmobkab/lol/internal/server"
 )
 
-type serverTickMsg struct{}
 
 func serverTick() tea.Cmd {
 	return func() tea.Msg {
@@ -31,15 +30,7 @@ func waitForServerEvent(events <-chan lolserver.Event) tea.Cmd {
 	}
 }
 
-type ServerModel struct {
-	viewport  viewport.Model
-	logs      []string
-	events    <-chan lolserver.Event
-	clients   int
-	startTime time.Time
-	width     int
-	ready     bool
-}
+
 
 func NewServerModel(events <-chan lolserver.Event, initialLogs []string) ServerModel {
 	return ServerModel{
