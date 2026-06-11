@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set build vars
+        run: |
+          echo "VERSION=${GITHUB_REF_NAME#v}"              >> $GITHUB_ENV
+          echo "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
+          echo "COMMIT=${GITHUB_SHA::7}"                    >> $GITHUB_ENV
+
+      - name: Build binaries
+        run: |
+          PKG=github.com/gitmobkab/lol/internal/data
+          LDFLAGS="-X $PKG.Version=$VERSION -X $PKG.BuildTime=$BUILD_TIME -X $PKG.CommitHash=$COMMIT"
+          mkdir dist
+
+          GOOS=linux   GOARCH=amd64  go build -ldflags "$LDFLAGS" -o dist/lol-linux-amd64
+          GOOS=linux   GOARCH=arm64  go build -ldflags "$LDFLAGS" -o dist/lol-linux-arm64
+          GOOS=darwin  GOARCH=amd64  go build -ldflags "$LDFLAGS" -o dist/lol-darwin-amd64
+          GOOS=darwin  GOARCH=arm64  go build -ldflags "$LDFLAGS" -o dist/lol-darwin-arm64
+          GOOS=windows GOARCH=amd64  go build -ldflags "$LDFLAGS" -o dist/lol-windows-amd64.exe
+
+      - name: Extract changelog
+        run: |
+          awk -v ver="$VERSION" '
+            /^## \[/ { if (found) exit; if (index($0, "[" ver "]") > 0) found=1; next }
+            found     { print }
+          ' CHANGELOG.md > release_notes.md
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          body_path: release_notes.md
