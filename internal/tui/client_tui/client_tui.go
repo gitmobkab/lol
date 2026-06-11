@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
@@ -18,12 +19,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	membersWidth  = 50
-	inputMaxLines = 4
-	// space reserved for input area: textarea lines + border top
-	inputAreaHeight = inputMaxLines + 1
-)
+const membersWidth = 50
 
 // Regexes applied line-by-line to the textarea view for inline markdown highlighting.
 // Processed in order: bold before italic so ** doesn't match as two * patterns.
@@ -45,22 +41,21 @@ func waitForClientEvent(events <-chan lolclient.Event) tea.Cmd {
 }
 
 func NewClientModel(c *lolclient.Client, ctx context.Context) ClientModel {
-	ta := textarea.New()
-	ta.Placeholder = "message…  ctrl+enter to send  /dm <name> <msg> for DMs"
-	ta.CharLimit = 4000
-	ta.ShowLineNumbers = false
-	ta.Prompt = ""
-	ta.SetHeight(inputMaxLines)
-	ta.DynamicHeight = true
-	ta.MinHeight = 1
-	ta.MaxHeight = inputMaxLines
-	ta.Focus()
+	text_area := textarea.New()
+	text_area.Placeholder = "message…  enter to send  ctrl+enter for newline  /dm <name> <msg> for DMs"
+	text_area.ShowLineNumbers = false
+	text_area.Prompt = ""
+	text_area.SetHeight(1)
+	text_area.DynamicHeight = true
+	text_area.MinHeight = 1
+	text_area.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("ctrl+enter"), key.WithHelp("ctrl+enter", "insert newline"))
+	text_area.Focus()
 
 	return ClientModel{
 		client:  c,
 		ctx:     ctx,
 		members: c.Members(),
-		input:   ta,
+		input:   text_area,
 		histIdx: -1,
 	}
 }
@@ -170,8 +165,9 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		chatWidth := msg.Width - membersWidth - 1
-		chatHeight := max(msg.Height-inputAreaHeight-1, 1)
 		m.input.SetWidth(msg.Width - 2)
+		m.input.MaxHeight = max(msg.Height/3, 4)
+		chatHeight := max(msg.Height-m.input.Height()-2, 1)
 		if !m.ready {
 			m.viewport = viewport.New(
 				viewport.WithWidth(chatWidth),
@@ -222,7 +218,7 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 
-		case "ctrl+enter":
+		case "enter":
 			text := strings.TrimSpace(m.input.Value())
 			m.input.Reset()
 			if text == "" {
@@ -284,6 +280,15 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	m.viewport, viewCmd = m.viewport.Update(msg)
 	m.input, inputCmd = m.input.Update(msg)
+
+	if m.ready {
+		if newH := max(m.height-m.input.Height()-2, 1); newH != m.viewport.Height() {
+			m.viewport.SetHeight(newH)
+			m.viewport.SetContent(m.renderMessages())
+			m.viewport.GotoBottom()
+		}
+	}
+
 	return m, tea.Batch(viewCmd, inputCmd)
 }
 
@@ -295,7 +300,7 @@ func (m ClientModel) renderMembers() string {
 	}
 	return membersPanelStyle.
 		Width(membersWidth).
-		Height(m.height - inputAreaHeight - 1).
+		Height(m.height - m.input.Height() - 2).
 		Render(strings.Join(lines, "\n"))
 }
 

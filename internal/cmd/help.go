@@ -8,7 +8,6 @@ import (
 	"github.com/gitmobkab/lol/internal/tui/markdown_viewer"
 )
 
-/**/
 const HELP_FORMAT string = `
 # %s - %s
 
