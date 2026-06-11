@@ -12,6 +12,9 @@ var (
 			BorderStyle(lipgloss.NormalBorder())
 	shortIDStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
 
+	overlayStyle     = lipgloss.NewStyle().BorderTop(true).BorderBottom(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("#444444"))
+	overlayUsageStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#a78bfa"))
+
 	// Markdown syntax highlight styles applied to the input view.
 	mdBoldStyle    = lipgloss.NewStyle().Bold(true)
 	mdItalicStyle  = lipgloss.NewStyle().Italic(true)

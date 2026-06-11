@@ -167,7 +167,7 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		chatWidth := msg.Width - membersWidth - 1
 		m.input.SetWidth(msg.Width - 2)
 		m.input.MaxHeight = max(msg.Height/3, 4)
-		chatHeight := max(msg.Height-m.input.Height()-2, 1)
+		chatHeight := max(msg.Height-m.input.Height()-m.overlayHeight()-2, 1)
 		if !m.ready {
 			m.viewport = viewport.New(
 				viewport.WithWidth(chatWidth),
@@ -227,42 +227,14 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.history = append(m.history, text)
 			m.histIdx = -1
 			m.draft = ""
-			ts := time.Now().Format("15:04")
-			if strings.HasPrefix(text, "/dm ") {
-				parts := strings.SplitN(text[4:], " ", 2)
-				if len(parts) == 2 {
-					rawTarget, body := parts[0], parts[1]
-					targetName, targetPrefix, _ := strings.Cut(rawTarget, "#")
-
-					var matches []protocol.Member
-					for _, mem := range m.members {
-						if !strings.EqualFold(mem.Name, targetName) {
-							continue
-						}
-						if targetPrefix != "" && !strings.HasPrefix(shortID(mem.ID), strings.ToLower(targetPrefix)) {
-							continue
-						}
-						matches = append(matches, mem)
-					}
-
-					switch len(matches) {
-					case 0:
-						m = addMessage(m, "System", fmt.Sprintf("user %q not found", rawTarget), ts, false, message_bubble.KindSystem)
-					case 1:
-						m.client.SendDM(m.ctx, matches[0].ID, body)
-						m = addMessage(m, "DM → "+matches[0].Name, body, ts, true, message_bubble.KindDM)
-					default:
-						var ids []string
-						for _, mem := range matches {
-							ids = append(ids, mem.Name+"#"+shortID(mem.ID))
-						}
-						m = addMessage(m, "System", "ambiguous — be specific: "+strings.Join(ids, ", "), ts, false, message_bubble.KindSystem)
-					}
-				}
-			} else {
-				m.client.SendChat(m.ctx, text)
-				m = addMessage(m, m.client.Name, text, ts, true, message_bubble.KindBroadcast)
+			if strings.HasPrefix(text, "/") {
+				var cmd tea.Cmd
+				m, cmd = dispatch(m, text[1:])
+				return m, cmd
 			}
+			ts := time.Now().Format("15:04")
+			m.client.SendChat(m.ctx, text)
+			m = addMessage(m, m.client.Name, text, ts, true, message_bubble.KindBroadcast)
 
 		case "up":
 			if m.input.Line() == 0 {
@@ -282,7 +254,7 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.input, inputCmd = m.input.Update(msg)
 
 	if m.ready {
-		if newH := max(m.height-m.input.Height()-2, 1); newH != m.viewport.Height() {
+		if newH := max(m.height-m.input.Height()-m.overlayHeight()-2, 1); newH != m.viewport.Height() {
 			m.viewport.SetHeight(newH)
 			m.viewport.SetContent(m.renderMessages())
 			m.viewport.GotoBottom()
@@ -290,6 +262,26 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(viewCmd, inputCmd)
+}
+
+func (m ClientModel) overlayHeight() int {
+	s := autocompleteSuggestions(m.input.Value())
+	if len(s) == 0 {
+		return 0
+	}
+	return len(s) + 2 // content lines + top/bottom border
+}
+
+func (m ClientModel) renderAutocomplete() string {
+	suggestions := autocompleteSuggestions(m.input.Value())
+	if len(suggestions) == 0 {
+		return ""
+	}
+	lines := make([]string, len(suggestions))
+	for i, cmd := range suggestions {
+		lines[i] = "  " + overlayUsageStyle.Render("/"+cmd.Usage) + "  " + cmd.Help
+	}
+	return overlayStyle.Width(m.width).Render(strings.Join(lines, "\n"))
 }
 
 func (m ClientModel) renderMembers() string {
@@ -300,7 +292,7 @@ func (m ClientModel) renderMembers() string {
 	}
 	return membersPanelStyle.
 		Width(membersWidth).
-		Height(m.height - m.input.Height() - 2).
+		Height(m.height - m.input.Height() - m.overlayHeight() - 2).
 		Render(strings.Join(lines, "\n"))
 }
 
@@ -320,6 +312,11 @@ func (m ClientModel) View() tea.View {
 	)
 	bottom := inputBarStyle.Width(m.width).Render(m.renderInput())
 
-	view.SetContent(lipgloss.JoinVertical(lipgloss.Left, top, bottom))
+	overlay := m.renderAutocomplete()
+	if overlay != "" {
+		view.SetContent(lipgloss.JoinVertical(lipgloss.Left, top, overlay, bottom))
+	} else {
+		view.SetContent(lipgloss.JoinVertical(lipgloss.Left, top, bottom))
+	}
 	return view
 }
