@@ -46,8 +46,13 @@ The version should be in semantic versioning format (e.g., 1.2.3).
 			err     error
 		)
 
-		if len(args) == 1 {
-			release, found, err = updater.DetectVersion(ctx, slug, args[0])
+		specificVersion := len(args) == 1
+		if specificVersion {
+			v := args[0]
+			if len(v) == 0 || v[0] != 'v' {
+				v = "v" + v
+			}
+			release, found, err = updater.DetectVersion(ctx, slug, v)
 		} else {
 			release, found, err = updater.DetectLatest(ctx, slug)
 		}
@@ -59,7 +64,8 @@ The version should be in semantic versioning format (e.g., 1.2.3).
 		}
 
 		// Skip version check for dev builds so local installs always update.
-		if data.Version != "dev" && !release.GreaterThan(data.Version) {
+		// When a specific version was requested, always install it (allow downgrade).
+		if !specificVersion && data.Version != "dev" && !release.GreaterThan(data.Version) {
 			fmt.Printf("Already on the latest version (%s), nothing to do.\n", data.Version)
 			return nil
 		}
