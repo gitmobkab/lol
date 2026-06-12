@@ -33,7 +33,8 @@ func Render(msg Message, vpWidth int) string {
 	}
 
 	bodyWidth := innerWidth - 2 // subtract body padding (PaddingLeft+PaddingRight = 2)
-	renderedBody := renderMarkdown(msg.Body, bodyWidth)
+	normalized := strings.ReplaceAll(msg.Body, "\n", "\n\n")
+	renderedBody := renderMarkdown(normalized, bodyWidth)
 
 	header := headerStyle.Width(innerWidth).Render(msg.Sender)
 	body := bubbleBodyStyle.Width(innerWidth).Render(renderedBody)
@@ -58,7 +59,7 @@ func Render(msg Message, vpWidth int) string {
 func renderMarkdown(text string, width int) string {
 	r, err := glamour.NewTermRenderer(
 		glamour.WithWordWrap(width),
-		glamour.WithStandardStyle("dark"),
+		glamour.WithStandardStyle(currentGlamourStyle),
 	)
 	if err != nil {
 		return text
