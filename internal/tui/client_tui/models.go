@@ -16,6 +16,7 @@ type ClientModel struct {
 	viewport viewport.Model
 	input    textarea.Model
 	messages []message_bubble.Message
+	msgLines []int // content-line offset of each message bubble's top border
 	members  []protocol.Member
 	client   *lolclient.Client
 	ctx      context.Context

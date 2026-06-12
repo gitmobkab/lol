@@ -17,6 +17,8 @@ var (
 	mdItalicStyle  lipgloss.Style
 	mdCodeStyle    lipgloss.Style
 	mdHeadingStyle lipgloss.Style
+
+	helpBarStyle lipgloss.Style
 )
 
 func init() {
@@ -46,4 +48,6 @@ func SetTheme(t theme.Theme) {
 	mdItalicStyle = lipgloss.NewStyle().Italic(true)
 	mdCodeStyle = lipgloss.NewStyle().Foreground(t.CodeColor)
 	mdHeadingStyle = lipgloss.NewStyle().Foreground(t.AccentColor).Bold(true)
+
+	helpBarStyle = lipgloss.NewStyle().Foreground(t.ShortIDColor)
 }

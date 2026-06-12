@@ -93,13 +93,25 @@ func (m ClientModel) renderInput() string {
 	return strings.Join(lines, "\n")
 }
 
-func (m ClientModel) renderMessages() string {
+// buildMessages renders all message bubbles and returns the joined content
+// alongside the content-line offset of each bubble's top border.
+func (m ClientModel) buildMessages() (string, []int) {
 	w := m.viewport.Width()
 	parts := make([]string, len(m.messages))
+	offsets := make([]int, len(m.messages))
+	line := 0
 	for i, msg := range m.messages {
-		parts[i] = message_bubble.Render(msg, w)
+		offsets[i] = line
+		rendered := message_bubble.Render(msg, w)
+		parts[i] = rendered
+		line += lipgloss.Height(rendered)
 	}
-	return strings.Join(parts, "\n")
+	return strings.Join(parts, "\n"), offsets
+}
+
+func (m ClientModel) renderMessages() string {
+	content, _ := m.buildMessages()
+	return content
 }
 
 func addMessage(m ClientModel, sender, body, ts string, own bool, kind message_bubble.MsgKind) ClientModel {
@@ -107,7 +119,9 @@ func addMessage(m ClientModel, sender, body, ts string, own bool, kind message_b
 		Sender: sender, Body: body, Ts: ts, Own: own, Kind: kind,
 	})
 	if m.ready {
-		m.viewport.SetContent(m.renderMessages())
+		content, offsets := m.buildMessages()
+		m.msgLines = offsets
+		m.viewport.SetContent(content)
 		m.viewport.GotoBottom()
 	}
 	return m
@@ -170,17 +184,20 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		chatWidth := msg.Width - membersWidth - 1
 		m.input.SetWidth(msg.Width - 2)
 		m.input.MaxHeight = max(msg.Height/3, 4)
-		chatHeight := max(msg.Height-m.input.Height()-m.overlayHeight()-2, 1)
+		chatHeight := max(msg.Height-m.input.Height()-m.overlayHeight()-3, 1)
 		if !m.ready {
 			m.viewport = viewport.New(
 				viewport.WithWidth(chatWidth),
 				viewport.WithHeight(chatHeight),
 			)
+			m.viewport.MouseWheelEnabled = true
 			m.ready = true
 		} else {
 			m.viewport.SetWidth(chatWidth)
 			m.viewport.SetHeight(chatHeight)
-			m.viewport.SetContent(m.renderMessages())
+			content, offsets := m.buildMessages()
+			m.msgLines = offsets
+			m.viewport.SetContent(content)
 		}
 
 	case lolclient.Event:
@@ -218,67 +235,72 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case connClosedMsg:
 		return m, tea.Quit
 
-	case tea.KeyPressMsg:
-		km := m.keyMap
-		if key.Matches(msg, km.Quit) {
-			return m, tea.Quit
+	case tea.MouseClickMsg:
+		if msg.Button == tea.MouseLeft &&
+			msg.Y < m.viewport.Height() &&
+			msg.X < m.viewport.Width() {
+			contentLine := m.viewport.YOffset() + msg.Y
+			for i, startLine := range m.msgLines {
+				if contentLine == startLine+1 { // +1: top border is line 0, header is line 1
+					return m, tea.SetClipboard(m.messages[i].Body)
+				}
+			}
 		}
 
+	case tea.KeyPressMsg:
+		km := m.keyMap
 		if m.scrollMode {
-			if key.Matches(msg, km.FocusInput) {
-				m.scrollMode = false
-				m.input.Focus()
-				return m, nil
-			}
-			// printable character re-focuses input and falls through to input.Update
-			if len([]rune(msg.String())) == 1 {
-				m.scrollMode = false
-				m.input.Focus()
-			} else {
-				m.viewport, viewCmd = m.viewport.Update(msg)
-				return m, viewCmd
-			}
-		} else {
 			switch {
-			case key.Matches(msg, km.ScrollMode):
-				m.scrollMode = true
-				m.input.Blur()
+			case key.Matches(msg, km.QuitScroll):
+				return m, tea.Quit
+			case key.Matches(msg, km.ToggleScroll):
+				m.scrollMode = false
+				m.input.Focus()
 				return m, nil
-
-			case key.Matches(msg, km.Send):
-				text := strings.TrimSpace(m.input.Value())
-				m.input.Reset()
-				if text == "" {
-					break
-				}
-				m.history = append(m.history, text)
-				m.histIdx = -1
-				m.draft = ""
-				if strings.HasPrefix(text, "/") {
-					var cmd tea.Cmd
-					m, cmd = dispatch(m, text[1:])
-					return m, cmd
-				}
-				ts := time.Now().Format("15:04")
-				m.client.SendChat(m.ctx, text)
-				m = addMessage(m, m.client.Name, text, ts, true, message_bubble.KindBroadcast)
-
-			case key.Matches(msg, km.HistoryPrev):
-				if m.input.Line() == 0 {
-					m.historyPrev()
-					return m, nil
-				}
-				m.input, inputCmd = m.input.Update(msg)
-				return m, inputCmd
-
-			case key.Matches(msg, km.HistoryNext):
-				if m.histIdx >= 0 && m.input.Line() == m.input.LineCount()-1 {
-					m.historyNext()
-					return m, nil
-				}
-				m.input, inputCmd = m.input.Update(msg)
-				return m, inputCmd
 			}
+			m.viewport, viewCmd = m.viewport.Update(msg)
+			return m, viewCmd
+		}
+
+		switch {
+		case key.Matches(msg, km.ToggleScroll):
+			m.scrollMode = true
+			m.input.Blur()
+			return m, nil
+
+		case key.Matches(msg, km.Send):
+			text := strings.TrimSpace(m.input.Value())
+			m.input.Reset()
+			if text == "" {
+				break
+			}
+			m.history = append(m.history, text)
+			m.histIdx = -1
+			m.draft = ""
+			if strings.HasPrefix(text, "/") {
+				var cmd tea.Cmd
+				m, cmd = dispatch(m, text[1:])
+				return m, cmd
+			}
+			ts := time.Now().Format("15:04")
+			m.client.SendChat(m.ctx, text)
+			m = addMessage(m, m.client.Name, text, ts, true, message_bubble.KindBroadcast)
+
+		case key.Matches(msg, km.HistoryPrev):
+			if m.input.Line() == 0 {
+				m.historyPrev()
+				return m, nil
+			}
+			m.input, inputCmd = m.input.Update(msg)
+			return m, inputCmd
+
+		case key.Matches(msg, km.HistoryNext):
+			if m.histIdx >= 0 && m.input.Line() == m.input.LineCount()-1 {
+				m.historyNext()
+				return m, nil
+			}
+			m.input, inputCmd = m.input.Update(msg)
+			return m, inputCmd
 		}
 	}
 
@@ -286,9 +308,11 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.input, inputCmd = m.input.Update(msg)
 
 	if m.ready {
-		if newH := max(m.height-m.input.Height()-m.overlayHeight()-2, 1); newH != m.viewport.Height() {
+		if newH := max(m.height-m.input.Height()-m.overlayHeight()-3, 1); newH != m.viewport.Height() {
 			m.viewport.SetHeight(newH)
-			m.viewport.SetContent(m.renderMessages())
+			content, offsets := m.buildMessages()
+			m.msgLines = offsets
+			m.viewport.SetContent(content)
 			m.viewport.GotoBottom()
 		}
 	}
@@ -324,14 +348,25 @@ func (m ClientModel) renderMembers() string {
 	}
 	return membersPanelStyle.
 		Width(membersWidth).
-		Height(m.height - m.input.Height() - m.overlayHeight() - 2).
+		Height(m.height - m.input.Height() - m.overlayHeight() - 3).
 		Render(strings.Join(lines, "\n"))
+}
+
+func (m ClientModel) renderHelpBar() string {
+	var hint string
+	if m.scrollMode {
+		hint = "tab: input mode · ↑/↓: scroll · esc/q/ctrl+c: quit"
+	} else {
+		hint = "tab: scroll mode · enter: send · shift+enter: newline · ↑/↓: history · ctrl+c: copy · ctrl+v: paste"
+	}
+	return helpBarStyle.Width(m.width).Render(hint)
 }
 
 func (m ClientModel) View() tea.View {
 	var view tea.View
 	view.AltScreen = true
 	view.BackgroundColor = lipgloss.Black
+	view.MouseMode = tea.MouseModeCellMotion
 
 	if !m.ready {
 		view.SetContent("Connecting...")
@@ -347,12 +382,13 @@ func (m ClientModel) View() tea.View {
 		bar = inputBarBlurredStyle
 	}
 	bottom := bar.Width(m.width).Render(m.renderInput())
+	help := m.renderHelpBar()
 
 	overlay := m.renderAutocomplete()
 	if overlay != "" {
-		view.SetContent(lipgloss.JoinVertical(lipgloss.Left, top, overlay, bottom))
+		view.SetContent(lipgloss.JoinVertical(lipgloss.Left, top, overlay, bottom, help))
 	} else {
-		view.SetContent(lipgloss.JoinVertical(lipgloss.Left, top, bottom))
+		view.SetContent(lipgloss.JoinVertical(lipgloss.Left, top, bottom, help))
 	}
 	return view
 }

@@ -3,23 +3,39 @@ package client_tui
 import "charm.land/bubbles/v2/key"
 
 type KeyMap struct {
-	Quit        key.Binding
-	Send        key.Binding
-	NewLine     key.Binding
-	HistoryPrev key.Binding
-	HistoryNext key.Binding
-	ScrollMode  key.Binding
-	FocusInput  key.Binding
+	ToggleScroll key.Binding
+	QuitScroll   key.Binding
+	Send         key.Binding
+	NewLine      key.Binding
+	HistoryPrev  key.Binding
+	HistoryNext  key.Binding
 }
 
 func DefaultKeyMap() KeyMap {
 	return KeyMap{
-		Quit:        key.NewBinding(key.WithKeys("ctrl+q"), key.WithHelp("ctrl+q", "quit")),
-		Send:        key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "send message")),
-		NewLine:     key.NewBinding(key.WithKeys("shift+enter"), key.WithHelp("shift+enter", "new line")),
-		HistoryPrev: key.NewBinding(key.WithKeys("up"), key.WithHelp("↑", "previous message")),
-		HistoryNext: key.NewBinding(key.WithKeys("down"), key.WithHelp("↓", "next message")),
-		ScrollMode:  key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "scroll messages")),
-		FocusInput:  key.NewBinding(key.WithKeys("esc", "tab"), key.WithHelp("esc/tab", "back to input")),
+		ToggleScroll: key.NewBinding(
+			key.WithKeys("tab"),
+			key.WithHelp("tab", "toggle scroll"),
+		),
+		QuitScroll: key.NewBinding(
+			key.WithKeys("esc", "q", "ctrl+c", "ctrl+q"),
+			key.WithHelp("esc/q/ctrl+c", "quit"),
+		),
+		Send: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "send"),
+		),
+		NewLine: key.NewBinding(
+			key.WithKeys("shift+enter"),
+			key.WithHelp("shift+enter", "newline"),
+		),
+		HistoryPrev: key.NewBinding(
+			key.WithKeys("up"),
+			key.WithHelp("↑", "prev"),
+		),
+		HistoryNext: key.NewBinding(
+			key.WithKeys("down"),
+			key.WithHelp("↓", "next"),
+		),
 	}
 }
