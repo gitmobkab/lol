@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/gitmobkab/lol/internal/protocol"
 	"github.com/gitmobkab/lol/internal/tui/message_bubble"
+	"github.com/gitmobkab/lol/internal/tui/theme"
 )
 
 type cmdHandler func(m ClientModel, args []string, tail string) (ClientModel, tea.Cmd)
@@ -38,6 +39,12 @@ var registry = map[string]Command{
 		Usage: "die",
 		Help:  "quit the app",
 		Run:   cmdDie,
+	},
+	"theme": {
+		Usage: "theme <name>",
+		Help:  "switch color theme (dark, dracula, nord)",
+		Args:  1,
+		Run:   cmdTheme,
 	},
 }
 
@@ -110,6 +117,22 @@ func cmdDM(m ClientModel, args []string, tail string) (ClientModel, tea.Cmd) {
 
 func cmdDie(m ClientModel, _ []string, _ string) (ClientModel, tea.Cmd) {
 	return m, tea.Quit
+}
+
+func cmdTheme(m ClientModel, args []string, _ string) (ClientModel, tea.Cmd) {
+	ts := time.Now().Format("15:04")
+	t, ok := theme.All[args[0]]
+	if !ok {
+		m = addMessage(m, "System", fmt.Sprintf("unknown theme %q — available: dark, dracula, nord", args[0]), ts, false, message_bubble.KindSystem)
+		return m, nil
+	}
+	SetTheme(t)
+	message_bubble.SetTheme(t)
+	if m.ready {
+		m.viewport.SetContent(m.renderMessages())
+	}
+	m = addMessage(m, "System", "theme set to "+t.Name, ts, false, message_bubble.KindSystem)
+	return m, nil
 }
 
 // autocompleteSuggestions returns commands whose name starts with the typed

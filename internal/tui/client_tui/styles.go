@@ -1,27 +1,49 @@
 package client_tui
 
-import "charm.land/lipgloss/v2"
+import (
+	"charm.land/lipgloss/v2"
+	"github.com/gitmobkab/lol/internal/tui/theme"
+)
 
 var (
-	membersPanelStyle = lipgloss.NewStyle().
-				BorderLeft(true).
-				BorderStyle(lipgloss.NormalBorder()).
-				PaddingLeft(1)
-	inputBarStyle = lipgloss.NewStyle().
-			BorderTop(true).
-			BorderStyle(lipgloss.NormalBorder())
-	inputBarBlurredStyle = lipgloss.NewStyle().
-				BorderTop(true).
-				BorderStyle(lipgloss.NormalBorder()).
-				BorderForeground(lipgloss.Color("#333333"))
-	shortIDStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
+	membersPanelStyle    lipgloss.Style
+	inputBarStyle        lipgloss.Style
+	inputBarBlurredStyle lipgloss.Style
+	shortIDStyle         lipgloss.Style
+	overlayStyle         lipgloss.Style
+	overlayUsageStyle    lipgloss.Style
 
-	overlayStyle     = lipgloss.NewStyle().BorderTop(true).BorderBottom(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("#444444"))
-	overlayUsageStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#a78bfa"))
-
-	// Markdown syntax highlight styles applied to the input view.
-	mdBoldStyle    = lipgloss.NewStyle().Bold(true)
-	mdItalicStyle  = lipgloss.NewStyle().Italic(true)
-	mdCodeStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#f97316"))
-	mdHeadingStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#a78bfa")).Bold(true)
+	mdBoldStyle    lipgloss.Style
+	mdItalicStyle  lipgloss.Style
+	mdCodeStyle    lipgloss.Style
+	mdHeadingStyle lipgloss.Style
 )
+
+func init() {
+	SetTheme(theme.Dark)
+}
+
+func SetTheme(t theme.Theme) {
+	membersPanelStyle = lipgloss.NewStyle().
+		BorderLeft(true).
+		BorderStyle(lipgloss.NormalBorder()).
+		PaddingLeft(1)
+	inputBarStyle = lipgloss.NewStyle().
+		BorderTop(true).
+		BorderStyle(lipgloss.NormalBorder())
+	inputBarBlurredStyle = lipgloss.NewStyle().
+		BorderTop(true).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(t.OverlayBorder)
+	shortIDStyle = lipgloss.NewStyle().Foreground(t.ShortIDColor)
+	overlayStyle = lipgloss.NewStyle().
+		BorderTop(true).BorderBottom(true).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(t.OverlayBorder)
+	overlayUsageStyle = lipgloss.NewStyle().Foreground(t.AccentColor)
+
+	mdBoldStyle = lipgloss.NewStyle().Bold(true)
+	mdItalicStyle = lipgloss.NewStyle().Italic(true)
+	mdCodeStyle = lipgloss.NewStyle().Foreground(t.CodeColor)
+	mdHeadingStyle = lipgloss.NewStyle().Foreground(t.AccentColor).Bold(true)
+}
