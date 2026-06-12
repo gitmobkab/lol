@@ -10,9 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - `/theme <name>` command to switch color themes at runtime (`dark`, `dracula`, `nord`)
+- the `--no-changelog` flag of the `update` command use `-n` as a shorthand
 
 ### Changed
 
+- `update` now open the changelogs in a new terminal screen
 - `help` command now displays flags and available subcommands as tables
 
 ### Fixed
