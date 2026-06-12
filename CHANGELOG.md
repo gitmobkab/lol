@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-06-12
+
+### Fixed
+
+- `lol update <version>` now works with or without a `v` prefix (e.g. `0.1.0` and `v0.1.0` are both accepted)
+- `lol update <version>` no longer skips installation when the requested version is older than the current version (downgrade support)
+
 ## [0.1.1] - 2026-06-12
 
 ### Added
