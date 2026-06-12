@@ -5,6 +5,7 @@ import (
 
 	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 const WidthRatio = 55
@@ -36,7 +37,7 @@ func Render(msg Message, vpWidth int) string {
 	normalized := strings.ReplaceAll(msg.Body, "\n", "\n\n")
 	renderedBody := renderMarkdown(normalized, bodyWidth)
 
-	header := headerStyle.Width(innerWidth).Render(msg.Sender)
+	header := renderHeader(msg.Sender, headerStyle, innerWidth)
 	body := bubbleBodyStyle.Width(innerWidth).Render(renderedBody)
 	timeRow := bubbleTimeStyle.Width(innerWidth).Align(lipgloss.Right).Render(msg.Ts)
 	inner := lipgloss.JoinVertical(lipgloss.Left, header, body, timeRow)
@@ -54,6 +55,19 @@ func Render(msg Message, vpWidth int) string {
 		}
 	}
 	return bubble
+}
+
+// renderHeader builds the header row with the sender name on the left and
+// a copy-hint icon (⎘) on the right. Clicking the header row copies the message.
+func renderHeader(sender string, style lipgloss.Style, innerWidth int) string {
+	const icon = " ⎘"
+	iconW := lipgloss.Width(icon)
+	// headerStyle has PaddingLeft(1); total block width = innerWidth, so content = innerWidth-1.
+	contentW := innerWidth - 1
+	senderMaxW := max(contentW-iconW, 0)
+	senderStr := ansi.Truncate(sender, senderMaxW, "")
+	fill := strings.Repeat(" ", max(senderMaxW-lipgloss.Width(senderStr), 0))
+	return style.Width(innerWidth).Render(senderStr + fill + icon)
 }
 
 func renderMarkdown(text string, width int) string {
