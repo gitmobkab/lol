@@ -86,6 +86,6 @@ The version should be in semantic versioning format (e.g., 1.2.3).
 }
 
 func init() {
-	updateCmd.Flags().BoolVar(&noChangelog, "no-changelog", false, "skip printing the changelog after a successful update")
+	updateCmd.Flags().BoolVarP(&noChangelog, "no-changelog", "n", false, "skip printing the changelog after a successful update")
 	rootCmd.AddCommand(updateCmd)
 }
