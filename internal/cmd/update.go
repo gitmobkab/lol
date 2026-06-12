@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"os"
 
+	tea "charm.land/bubbletea/v2"
 	selfupdate "github.com/creativeprojects/go-selfupdate"
-	"github.com/gitmobkab/lol/internal/data"
 	"github.com/spf13/cobra"
+
+	"github.com/gitmobkab/lol/internal/data"
+	"github.com/gitmobkab/lol/internal/tui/markdown_viewer"
 )
 
 var noChangelog bool
@@ -73,7 +76,10 @@ The version should be in semantic versioning format (e.g., 1.2.3).
 
 		fmt.Println("Done. Run `lol --version` to confirm.")
 		if !noChangelog && release.ReleaseNotes != "" {
-			fmt.Printf("\nWhat's new in %s:\n\n%s\n", release.Version(), release.ReleaseNotes)
+			full_notes := fmt.Sprintf("\nWhat's new in %s:\n\n%s\n", release.Version(), release.ReleaseNotes)
+			markdown_model := markdown_viewer.NewMarkdownViewer(full_notes)
+			_, err := tea.NewProgram(markdown_model).Run()
+			return err
 		}
 		return nil
 	},
