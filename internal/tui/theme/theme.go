@@ -9,6 +9,7 @@ import (
 type Theme struct {
 	Name         string
 	GlamourStyle string
+	Background   color.Color
 
 	HeaderOtherBg  color.Color
 	HeaderOtherFg  color.Color
@@ -34,6 +35,7 @@ var (
 	Dark = Theme{
 		Name:         "dark",
 		GlamourStyle: "dark",
+		Background:   lipgloss.Color("#000000"),
 
 		HeaderOtherBg:  lipgloss.Color("#2c2c2c"),
 		HeaderOtherFg:  lipgloss.Color("#aaaaaa"),
@@ -58,6 +60,7 @@ var (
 	Dracula = Theme{
 		Name:         "dracula",
 		GlamourStyle: "dracula",
+		Background:   lipgloss.Color("#282a36"),
 
 		HeaderOtherBg:  lipgloss.Color("#44475a"),
 		HeaderOtherFg:  lipgloss.Color("#f8f8f2"),
@@ -82,6 +85,7 @@ var (
 	Nord = Theme{
 		Name:         "nord",
 		GlamourStyle: "dark",
+		Background:   lipgloss.Color("#2e3440"),
 
 		HeaderOtherBg:  lipgloss.Color("#3b4252"),
 		HeaderOtherFg:  lipgloss.Color("#d8dee9"),

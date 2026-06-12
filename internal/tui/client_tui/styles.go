@@ -1,11 +1,15 @@
 package client_tui
 
 import (
+	"image/color"
+
 	"charm.land/lipgloss/v2"
 	"github.com/gitmobkab/lol/internal/tui/theme"
 )
 
 var (
+	currentBackground color.Color
+
 	membersPanelStyle    lipgloss.Style
 	inputBarStyle        lipgloss.Style
 	inputBarBlurredStyle lipgloss.Style
@@ -26,6 +30,8 @@ func init() {
 }
 
 func SetTheme(t theme.Theme) {
+	currentBackground = t.Background
+
 	membersPanelStyle = lipgloss.NewStyle().
 		BorderLeft(true).
 		BorderStyle(lipgloss.NormalBorder()).

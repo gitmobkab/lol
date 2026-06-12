@@ -365,7 +365,7 @@ func (m ClientModel) renderHelpBar() string {
 func (m ClientModel) View() tea.View {
 	var view tea.View
 	view.AltScreen = true
-	view.BackgroundColor = lipgloss.Black
+	view.BackgroundColor = currentBackground
 	view.MouseMode = tea.MouseModeCellMotion
 
 	if !m.ready {
