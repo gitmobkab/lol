@@ -146,16 +146,20 @@ func shortID(id uuid.UUID) string {
 	return strings.ReplaceAll(id.String(), "-", "")[:6]
 }
 
-func (m ClientModel) memberName(id uuid.UUID) string {
-	for _, mem := range m.members {
-		if mem.ID == id {
-			return mem.Name
-		}
-	}
-	return id.String()[:8]
+// memberTag returns the canonical "name#shortid" string used in message
+// senders, system notices, and command completions.
+func memberTag(name string, id uuid.UUID) string {
+	return name + "#" + shortID(id)
 }
 
+// memberDisplay returns a styled version of memberTag where the #shortid
+// suffix is rendered with shortIDStyle. Use this as the Sender field in
+// message bubbles so the ID is visually de-emphasised but still present.
+// It also handles the local client's own UUID.
 func (m ClientModel) memberDisplay(id uuid.UUID) string {
+	if id == m.client.Self {
+		return m.client.Name + shortIDStyle.Render("#"+shortID(id))
+	}
 	for _, mem := range m.members {
 		if mem.ID == id {
 			return mem.Name + shortIDStyle.Render("#"+shortID(id))
@@ -226,22 +230,23 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m = addMessage(m, m.memberDisplay(p.From), ansi.Strip(p.Body), ts, false, message_bubble.KindBroadcast)
 		case protocol.WhisperMessage:
 			p := msg.Payload.(protocol.WhisperPayload)
-			m = addMessage(m, "[DM] "+m.memberName(p.From), ansi.Strip(p.Body), ts, false, message_bubble.KindDM)
+			m = addMessage(m, "[DM] "+m.memberDisplay(p.From), ansi.Strip(p.Body), ts, false, message_bubble.KindDM)
 		case protocol.JoinMessage:
 			p := msg.Payload.(protocol.JoinPayload)
 			p.Name = ansi.Strip(p.Name)
 			m.members = append(m.members, protocol.Member{Name: p.Name, ID: p.Id})
-			m = addMessage(m, "System", "→ "+p.Name+" joined", ts, false, message_bubble.KindSystem)
+			m = addMessage(m, "System", "→ "+memberTag(p.Name, p.Id)+" joined", ts, false, message_bubble.KindSystem)
 		case protocol.LeaveMessage:
 			p := msg.Payload.(protocol.LeavePayload)
-			name := m.memberName(p.From)
+			tag := p.From.String()[:8]
 			for i, mem := range m.members {
 				if mem.ID == p.From {
+					tag = memberTag(mem.Name, mem.ID)
 					m.members = append(m.members[:i], m.members[i+1:]...)
 					break
 				}
 			}
-			m = addMessage(m, "System", "← "+name+" left", ts, false, message_bubble.KindSystem)
+			m = addMessage(m, "System", "← "+tag+" left", ts, false, message_bubble.KindSystem)
 		case protocol.ErrorMessage:
 			p := msg.Payload.(protocol.ErrorPayload)
 			m = addMessage(m, "System", fmt.Sprintf("[error] %v", p.Body), ts, false, message_bubble.KindSystem)
@@ -334,7 +339,7 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			ts := time.Now().Format("15:04")
 			m.client.SendChat(m.ctx, text)
-			m = addMessage(m, m.client.Name, text, ts, true, message_bubble.KindBroadcast)
+			m = addMessage(m, m.memberDisplay(m.client.Self), text, ts, true, message_bubble.KindBroadcast)
 
 		case key.Matches(msg, km.HistoryPrev):
 			if m.input.Line() == 0 {

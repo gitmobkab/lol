@@ -49,8 +49,9 @@ var registry = map[string]Command{
 			lower := strings.ToLower(partial)
 			var out []string
 			for _, mem := range m.members {
-				if strings.HasPrefix(strings.ToLower(mem.Name), lower) {
-					out = append(out, mem.Name)
+				candidate := memberTag(mem.Name, mem.ID)
+				if strings.HasPrefix(strings.ToLower(candidate), lower) {
+					out = append(out, candidate)
 				}
 			}
 			sort.Strings(out)
@@ -162,7 +163,7 @@ func cmdDM(m ClientModel, args []string, tail string) (ClientModel, tea.Cmd) {
 		m = addMessage(m, "System", fmt.Sprintf("user %q not found", rawTarget), ts, false, message_bubble.KindSystem)
 	case 1:
 		m.client.SendDM(m.ctx, matches[0].ID, tail)
-		m = addMessage(m, "DM → "+matches[0].Name, tail, ts, true, message_bubble.KindDM)
+		m = addMessage(m, "DM → "+memberTag(matches[0].Name, matches[0].ID), tail, ts, true, message_bubble.KindDM)
 	default:
 		ids := make([]string, len(matches))
 		for i, mem := range matches {
