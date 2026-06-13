@@ -3,14 +3,30 @@ package server
 import (
 	"context"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/coder/websocket"
 	"github.com/gitmobkab/lol/internal/protocol"
 	"github.com/google/uuid"
+	"golang.org/x/time/rate"
 )
 
+const (
+	// msgRate is the sustained messages-per-second each client may send.
+	msgRate  = 10
+	msgBurst = 20
+	// connRate is the new-connections-per-second allowed from a single IP.
+	connRate  = 1
+	connBurst = 3
+)
+
+
+func (server *Server) getConnLimiter(ip string) *rate.Limiter {
+	v, _ := server.connLimiters.LoadOrStore(ip, rate.NewLimiter(connRate, connBurst))
+	return v.(*rate.Limiter)
+}
 
 func New(logger *slog.Logger) *Server {
     return &Server{
@@ -156,6 +172,12 @@ func (server *Server) HandleClientLoop(
             break
         }
 
+        if !client.limiter.Allow() {
+            server.logger.Warn("Client exceeded message rate limit", "Id", client.id)
+            server.sendError(ctx, client, 429, "rate limit exceeded")
+            continue
+        }
+
         msgType, data, err := protocol.DecodeEnvelope(raw)
         if err != nil {
             server.logger.Error("Failed to decode message envelope",
@@ -226,17 +248,28 @@ func (server *Server) HandleClientLoop(
 }
 
 func (server *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    ip, _, err := net.SplitHostPort(r.RemoteAddr)
+    if err != nil {
+        ip = r.RemoteAddr
+    }
+    if !server.getConnLimiter(ip).Allow() {
+        server.logger.Warn("Connection rate limit exceeded", "remote", r.RemoteAddr)
+        http.Error(w, "too many connections", http.StatusTooManyRequests)
+        return
+    }
+
     conn, err := websocket.Accept(w, r, nil)
     if err != nil {
-        server.logger.Error("Failed to accept websocket connection", 
+        server.logger.Error("Failed to accept websocket connection",
 			"Err", err,
 		)
         return
     }
 
     client := &Client{
-        conn: conn,
-        id:   uuid.New(),
+        conn:    conn,
+        id:      uuid.New(),
+        limiter: rate.NewLimiter(msgRate, msgBurst),
     }
 
 	server.logger.Info("New connection detected",

@@ -7,12 +7,14 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
+	"golang.org/x/time/rate"
 )
 
 type Client struct {
-	conn *websocket.Conn
-	id   uuid.UUID
-	name string
+	conn    *websocket.Conn
+	id      uuid.UUID
+	name    string
+	limiter *rate.Limiter
 }
 
 type EventType string
@@ -30,8 +32,9 @@ type Event struct {
 }
 
 type Server struct {
-	clients map[uuid.UUID]*Client
-	mutex   sync.RWMutex
-	logger  *slog.Logger
-	Events  chan Event
+	clients      map[uuid.UUID]*Client
+	mutex        sync.RWMutex
+	connLimiters sync.Map // map[string]*rate.Limiter, keyed by IP
+	logger       *slog.Logger
+	Events       chan Event
 }
