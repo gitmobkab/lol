@@ -48,11 +48,7 @@ The version should be in semantic versioning format (e.g., 1.2.3).
 
 		specificVersion := len(args) == 1
 		if specificVersion {
-			v := args[0]
-			if len(v) == 0 || v[0] != 'v' {
-				v = "v" + v
-			}
-			release, found, err = updater.DetectVersion(ctx, slug, v)
+			release, found, err = updater.DetectVersion(ctx, slug, normalizeVersion(args[0]))
 		} else {
 			release, found, err = updater.DetectLatest(ctx, slug)
 		}
@@ -89,6 +85,13 @@ The version should be in semantic versioning format (e.g., 1.2.3).
 		}
 		return nil
 	},
+}
+
+func normalizeVersion(v string) string {
+	if len(v) == 0 || v[0] != 'v' {
+		return "v" + v
+	}
+	return v
 }
 
 func init() {
