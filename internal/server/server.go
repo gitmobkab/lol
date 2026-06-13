@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -20,6 +21,11 @@ const (
 	// connRate is the new-connections-per-second allowed from a single IP.
 	connRate  = 1
 	connBurst = 3
+
+	// maxFileSize is the maximum decoded file size accepted (10 MB).
+	maxFileSize = 10 * 1024 * 1024
+	// maxFilePayloadSize is the corresponding base64-encoded upper bound.
+	maxFilePayloadSize = maxFileSize * 4 / 3 + 4
 )
 
 
@@ -234,6 +240,23 @@ func (server *Server) HandleClientLoop(
 
         case protocol.PingMessage:
             server.send(ctx, client, protocol.PongMessage, protocol.PongPayload{})
+
+        case protocol.FileMessage:
+            payload, err := protocol.DecodePayload[protocol.FilePayload](data)
+            if err != nil {
+                server.sendError(ctx, client, 2, "invalid file payload")
+                continue
+            }
+            if len(payload.Data) > maxFilePayloadSize {
+                server.sendError(ctx, client, 5, fmt.Sprintf("file too large (max %d MB)", maxFileSize/(1024*1024)))
+                continue
+            }
+            server.broadcast(ctx, client, protocol.FileShareMessage, protocol.FileSharePayload{
+                From: client.id,
+                Name: payload.Name,
+                Size: int64(len(payload.Data)) * 3 / 4,
+                Data: payload.Data,
+            })
 
         default:
             server.logger.Error("Received unauthorized message type",
