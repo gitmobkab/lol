@@ -291,6 +291,9 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyPressMsg:
+		if m.filePicker != nil {
+			break // let the filepicker routing block below handle all keys
+		}
 		km := m.keyMap
 		if m.scrollMode {
 			switch {
