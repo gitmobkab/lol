@@ -3,6 +3,8 @@ package client_tui
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -127,6 +129,19 @@ func addMessage(m ClientModel, sender, body, ts string, own bool, kind message_b
 	return m
 }
 
+func humanBytes(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
 func shortID(id uuid.UUID) string {
 	return strings.ReplaceAll(id.String(), "-", "")[:6]
 }
@@ -199,6 +214,9 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.msgLines = offsets
 			m.viewport.SetContent(content)
 		}
+		if m.filePicker != nil {
+			m.filePicker.SetHeight(min(10, max(msg.Height/3, 4)))
+		}
 
 	case lolclient.Event:
 		ts := time.Now().Format("15:04")
@@ -229,11 +247,31 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m = addMessage(m, "System", fmt.Sprintf("[error] %v", p.Body), ts, false, message_bubble.KindSystem)
 		case protocol.PongMessage:
 			m = addMessage(m, "System", "server responded: Pong", ts, false, message_bubble.KindSystem)
+		case protocol.FileShareMessage:
+			p := msg.Payload.(protocol.FileSharePayload)
+			body := fmt.Sprintf("**%s** (%s) — type `/save %s` to download", p.Name, humanBytes(p.Size), p.Name)
+			m = addMessage(m, m.memberDisplay(p.From), body, ts, false, message_bubble.KindFile)
 		}
 		return m, waitForClientEvent(m.client.Events)
 
 	case connClosedMsg:
 		return m, tea.Quit
+
+	case tea.PasteMsg:
+		if m.filePicker == nil {
+			content := strings.TrimSpace(msg.Content)
+			if !strings.ContainsAny(content, "\n\r") {
+				// Strip surrounding quotes added by some terminals on drag-and-drop.
+				if len(content) >= 2 && content[0] == '"' && content[len(content)-1] == '"' {
+					content = content[1 : len(content)-1]
+				}
+				if info, err := os.Stat(content); err == nil && !info.IsDir() {
+					m.input.SetValue("/upload " + content)
+					m.input.MoveToEnd()
+					return m, nil
+				}
+			}
+		}
 
 	case tea.MouseClickMsg:
 		if msg.Button == tea.MouseLeft &&
@@ -264,6 +302,18 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch {
 		case key.Matches(msg, km.ToggleScroll):
+			// Arg completions take priority over scroll toggle.
+			if suggs := argCompletions(m, m.input.Value()); len(suggs) > 0 {
+				m.input.SetValue(applyCompletion(m.input.Value(), suggs[0]))
+				m.input.MoveToEnd()
+				return m, nil
+			}
+			// Single command match → complete the command name.
+			if cmds := autocompleteSuggestions(m.input.Value()); len(cmds) == 1 {
+				m.input.SetValue("/" + commandName(cmds[0].Usage) + " ")
+				m.input.MoveToEnd()
+				return m, nil
+			}
 			m.scrollMode = true
 			m.input.Blur()
 			return m, nil
@@ -304,6 +354,28 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Route remaining messages to the file picker when it is active.
+	if m.filePicker != nil {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok && keyMsg.String() == "esc" {
+			m.filePicker = nil
+			m.input.Focus()
+			return m, nil
+		}
+		newFP, fpCmd := m.filePicker.Update(msg)
+		m.filePicker = &newFP
+		if didSelect, path := newFP.DidSelectFile(msg); didSelect {
+			m.filePicker = nil
+			m.input.Focus()
+			ts := time.Now().Format("15:04")
+			if err := m.client.SendFile(m.ctx, path); err != nil {
+				m = addMessage(m, "System", "upload failed: "+err.Error(), ts, false, message_bubble.KindSystem)
+			} else {
+				m = addMessage(m, "System", "sent "+filepath.Base(path), ts, false, message_bubble.KindSystem)
+			}
+		}
+		return m, fpCmd
+	}
+
 	m.viewport, viewCmd = m.viewport.Update(msg)
 	m.input, inputCmd = m.input.Update(msg)
 
@@ -321,15 +393,34 @@ func (m ClientModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m ClientModel) overlayHeight() int {
-	s := autocompleteSuggestions(m.input.Value())
-	if len(s) == 0 {
-		return 0
+	if m.filePicker != nil {
+		return m.filePicker.Height() + 2 // +2 for border
 	}
-	return len(s) + 2 // content lines + top/bottom border
+	input := m.input.Value()
+	if args := argCompletions(m, input); len(args) > 0 {
+		return min(len(args), 5) + 2
+	}
+	if cmds := autocompleteSuggestions(input); len(cmds) > 0 {
+		return len(cmds) + 2
+	}
+	return 0
 }
 
 func (m ClientModel) renderAutocomplete() string {
-	suggestions := autocompleteSuggestions(m.input.Value())
+	input := m.input.Value()
+
+	// Argument completions (shown when in the args phase of a command).
+	if args := argCompletions(m, input); len(args) > 0 {
+		limit := min(len(args), 5)
+		lines := make([]string, limit)
+		for i := range limit {
+			lines[i] = "  " + overlayUsageStyle.Render(args[i])
+		}
+		return overlayStyle.Width(m.width).Render(strings.Join(lines, "\n"))
+	}
+
+	// Command name completions (shown while typing /command).
+	suggestions := autocompleteSuggestions(input)
 	if len(suggestions) == 0 {
 		return ""
 	}
@@ -354,10 +445,13 @@ func (m ClientModel) renderMembers() string {
 
 func (m ClientModel) renderHelpBar() string {
 	var hint string
-	if m.scrollMode {
+	switch {
+	case m.filePicker != nil:
+		hint = "↑/↓: navigate · enter: select · esc: cancel"
+	case m.scrollMode:
 		hint = "tab: input mode · ↑/↓: scroll · esc/q/ctrl+c: quit"
-	} else {
-		hint = "tab: scroll mode · enter: send · shift+enter: newline · ↑/↓: history · ctrl+c: copy · ctrl+v: paste"
+	default:
+		hint = "tab: complete/scroll · enter: send · shift+enter: newline · ↑/↓: history · ctrl+c: copy · ctrl+v: paste"
 	}
 	return helpBarStyle.Width(m.width).Render(hint)
 }
@@ -377,12 +471,19 @@ func (m ClientModel) View() tea.View {
 		m.viewport.View(),
 		m.renderMembers(),
 	)
+	help := m.renderHelpBar()
+
+	if m.filePicker != nil {
+		bottom := inputBarStyle.Width(m.width).Render(m.filePicker.View())
+		view.SetContent(lipgloss.JoinVertical(lipgloss.Left, top, bottom, help))
+		return view
+	}
+
 	bar := inputBarStyle
 	if m.scrollMode {
 		bar = inputBarBlurredStyle
 	}
 	bottom := bar.Width(m.width).Render(m.renderInput())
-	help := m.renderHelpBar()
 
 	overlay := m.renderAutocomplete()
 	if overlay != "" {

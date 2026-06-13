@@ -6,6 +6,7 @@ const (
 	KindBroadcast MsgKind = iota
 	KindSystem
 	KindDM
+	KindFile
 )
 
 type Message struct {

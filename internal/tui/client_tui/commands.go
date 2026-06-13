@@ -2,10 +2,13 @@ package client_tui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/filepicker"
 	tea "charm.land/bubbletea/v2"
 	"github.com/gitmobkab/lol/internal/protocol"
 	"github.com/gitmobkab/lol/internal/tui/message_bubble"
@@ -14,12 +17,17 @@ import (
 
 type cmdHandler func(m ClientModel, args []string, tail string) (ClientModel, tea.Cmd)
 
+// completeFn returns completion suggestions given already-confirmed args and the
+// current partial token being typed. It is responsible for filtering by partial.
+type completeFn func(m ClientModel, confirmedArgs []string, partial string) []string
+
 type Command struct {
-	Usage string
-	Help  string
-	Args  int
-	Tail  bool
-	Run   cmdHandler
+	Usage    string
+	Help     string
+	Args     int
+	Tail     bool
+	Run      cmdHandler
+	Complete completeFn // optional; nil means no argument completions
 }
 
 var registry = map[string]Command{
@@ -34,6 +42,20 @@ var registry = map[string]Command{
 		Args:  1,
 		Tail:  true,
 		Run:   cmdDM,
+		Complete: func(m ClientModel, confirmedArgs []string, partial string) []string {
+			if len(confirmedArgs) > 0 {
+				return nil // past the username; don't complete the message body
+			}
+			lower := strings.ToLower(partial)
+			var out []string
+			for _, mem := range m.members {
+				if strings.HasPrefix(strings.ToLower(mem.Name), lower) {
+					out = append(out, mem.Name)
+				}
+			}
+			sort.Strings(out)
+			return out
+		},
 	},
 	"die": {
 		Usage: "die",
@@ -45,6 +67,42 @@ var registry = map[string]Command{
 		Help:  "switch color theme (dark, dracula, nord)",
 		Args:  1,
 		Run:   cmdTheme,
+		Complete: func(_ ClientModel, _ []string, partial string) []string {
+			all := []string{"dark", "dracula", "nord"}
+			var out []string
+			for _, name := range all {
+				if strings.HasPrefix(name, partial) {
+					out = append(out, name)
+				}
+			}
+			return out
+		},
+	},
+	"upload": {
+		Usage: "upload [path]",
+		Help:  "send a file (no path opens a file picker, max 10 MB)",
+		Args:  0,
+		Tail:  true,
+		Run:   cmdUpload,
+		Complete: func(_ ClientModel, _ []string, partial string) []string {
+			return listPathSuggestions(partial)
+		},
+	},
+	"save": {
+		Usage: "save <filename>",
+		Help:  "save a received file to ~/Downloads/lol/",
+		Args:  1,
+		Run:   cmdSave,
+		Complete: func(m ClientModel, _ []string, partial string) []string {
+			names := m.client.BufferedFileNames()
+			var out []string
+			for _, name := range names {
+				if strings.HasPrefix(name, partial) {
+					out = append(out, name)
+				}
+			}
+			return out
+		},
 	},
 }
 
@@ -132,6 +190,128 @@ func cmdTheme(m ClientModel, args []string, _ string) (ClientModel, tea.Cmd) {
 		m.viewport.SetContent(m.renderMessages())
 	}
 	m = addMessage(m, "System", "theme set to "+t.Name, ts, false, message_bubble.KindSystem)
+	return m, nil
+}
+
+func cmdUpload(m ClientModel, _ []string, tail string) (ClientModel, tea.Cmd) {
+	ts := time.Now().Format("15:04")
+	path := strings.TrimSpace(tail)
+	if path == "" {
+		fp := filepicker.New()
+		fp.FileAllowed = true
+		fp.DirAllowed = false
+		fp.SetHeight(min(10, max(m.height/3, 4)))
+		if home, err := os.UserHomeDir(); err == nil {
+			fp.CurrentDirectory = home
+		}
+		m.filePicker = &fp
+		return m, fp.Init()
+	}
+	if err := m.client.SendFile(m.ctx, path); err != nil {
+		m = addMessage(m, "System", fmt.Sprintf("upload failed: %s", err), ts, false, message_bubble.KindSystem)
+		return m, nil
+	}
+	m = addMessage(m, "System", fmt.Sprintf("sent %s", filepath.Base(path)), ts, false, message_bubble.KindSystem)
+	return m, nil
+}
+
+// parseInputForCompletion extracts the command name, already-confirmed args, and
+// the partial token currently being typed. inArgs is false when still completing
+// the command name itself.
+func parseInputForCompletion(input string) (cmdName string, confirmedArgs []string, partial string, inArgs bool) {
+	if !strings.HasPrefix(input, "/") {
+		return
+	}
+	after := input[1:]
+	spaceIdx := strings.IndexRune(after, ' ')
+	if spaceIdx < 0 {
+		return // still typing the command name
+	}
+	inArgs = true
+	cmdName = after[:spaceIdx]
+	rest := after[spaceIdx+1:]
+	if strings.HasSuffix(rest, " ") || rest == "" {
+		confirmedArgs = strings.Fields(rest)
+		partial = ""
+	} else {
+		fields := strings.Fields(rest)
+		confirmedArgs = fields[:len(fields)-1]
+		partial = fields[len(fields)-1]
+	}
+	return
+}
+
+// argCompletions returns filtered argument suggestions for the current input.
+func argCompletions(m ClientModel, input string) []string {
+	cmdName, confirmedArgs, partial, inArgs := parseInputForCompletion(input)
+	if !inArgs {
+		return nil
+	}
+	cmd, ok := registry[cmdName]
+	if !ok || cmd.Complete == nil {
+		return nil
+	}
+	return cmd.Complete(m, confirmedArgs, partial)
+}
+
+// applyCompletion replaces the partial token at the end of input with suggestion.
+func applyCompletion(input, suggestion string) string {
+	idx := strings.LastIndexByte(input, ' ')
+	if idx < 0 {
+		return input
+	}
+	return input[:idx+1] + suggestion
+}
+
+// commandName returns the bare name from a Usage string (the first word).
+func commandName(usage string) string {
+	if i := strings.IndexByte(usage, ' '); i >= 0 {
+		return usage[:i]
+	}
+	return usage
+}
+
+// listPathSuggestions returns filesystem entries whose name starts with the
+// basename of partial, preserving the directory prefix.
+func listPathSuggestions(partial string) []string {
+	dir, prefix := filepath.Split(partial)
+	if dir == "" {
+		dir = "."
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, e := range entries {
+		if !strings.HasPrefix(e.Name(), prefix) {
+			continue
+		}
+		full := filepath.Join(dir, e.Name())
+		if dir == "." {
+			full = e.Name()
+		}
+		if e.IsDir() {
+			full += string(filepath.Separator)
+		}
+		out = append(out, full)
+	}
+	return out
+}
+
+func cmdSave(m ClientModel, args []string, _ string) (ClientModel, tea.Cmd) {
+	ts := time.Now().Format("15:04")
+	name := args[0]
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = "."
+	}
+	dir := filepath.Join(home, "Downloads", "lol")
+	if err := m.client.SaveFile(name, dir); err != nil {
+		m = addMessage(m, "System", fmt.Sprintf("save failed: %s", err), ts, false, message_bubble.KindSystem)
+		return m, nil
+	}
+	m = addMessage(m, "System", fmt.Sprintf("saved to %s", filepath.Join(dir, name)), ts, false, message_bubble.KindSystem)
 	return m, nil
 }
 
