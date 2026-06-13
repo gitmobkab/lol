@@ -24,4 +24,6 @@ type Client struct {
 	members []protocol.Member
 	Events  chan Event
 	logger  *slog.Logger
+	fileMu  sync.Mutex
+	files   map[string][]byte // keyed by sanitized basename
 }

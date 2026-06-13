@@ -2,8 +2,12 @@ package client
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"sort"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/coder/websocket"
@@ -139,10 +143,70 @@ func (client *Client) ReadLoop(ctx context.Context) {
 		case protocol.PongMessage:
 			client.Events <- Event{Type: msgType, Payload: protocol.PongPayload{}}
 
+		case protocol.FileShareMessage:
+			p, err := protocol.DecodePayload[protocol.FileSharePayload](data)
+			if err != nil {
+				continue
+			}
+			decoded, err := base64.StdEncoding.DecodeString(p.Data)
+			if err != nil {
+				client.logger.Error("failed to decode file data", "err", err)
+				continue
+			}
+			name := filepath.Base(p.Name)
+			client.storeFile(name, decoded)
+			client.Events <- Event{Type: msgType, Payload: protocol.FileSharePayload{
+				From: p.From,
+				Name: name,
+				Size: int64(len(decoded)),
+			}}
+
 		default:
 			client.logger.Warn("unexpected message type", "type", msgType)
 		}
 	}
+}
+
+func (client *Client) storeFile(name string, data []byte) {
+	client.fileMu.Lock()
+	defer client.fileMu.Unlock()
+	if client.files == nil {
+		client.files = make(map[string][]byte)
+	}
+	client.files[name] = data
+}
+
+func (client *Client) SaveFile(name, dir string) error {
+	client.fileMu.Lock()
+	data, ok := client.files[name]
+	client.fileMu.Unlock()
+	if !ok {
+		return fmt.Errorf("no buffered file %q — has it been received?", name)
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, filepath.Base(name)), data, 0644)
+}
+
+const maxFileSize = 10 * 1024 * 1024 // 10 MB
+
+func (client *Client) SendFile(ctx context.Context, path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if len(data) > maxFileSize {
+		return fmt.Errorf("file too large (max 10 MB)")
+	}
+	encoded, err := protocol.Encode(protocol.FileMessage, protocol.FilePayload{
+		Name: filepath.Base(path),
+		Data: base64.StdEncoding.EncodeToString(data),
+	})
+	if err != nil {
+		return err
+	}
+	return client.conn.Write(ctx, websocket.MessageText, encoded)
 }
 
 func (client *Client) SendChat(ctx context.Context, body string) error {
@@ -167,6 +231,17 @@ func (client *Client) SendPing(ctx context.Context) error {
 		return err
 	}
 	return client.conn.Write(ctx, websocket.MessageText, encoded)
+}
+
+func (client *Client) BufferedFileNames() []string {
+	client.fileMu.Lock()
+	defer client.fileMu.Unlock()
+	names := make([]string, 0, len(client.files))
+	for name := range client.files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func (client *Client) Close() {
