@@ -10,17 +10,19 @@ type MessageType string
 const ProtocolVersion int = 1
 
 const (
-    RegisterMessage MessageType = "register"
-	JoinMessage MessageType = "join"
-    LeaveMessage MessageType = "leave"
-    SyncMessage MessageType = "sync"
-    ChatMessage MessageType = "chat"
+    RegisterMessage  MessageType = "register"
+	JoinMessage      MessageType = "join"
+    LeaveMessage     MessageType = "leave"
+    SyncMessage      MessageType = "sync"
+    ChatMessage      MessageType = "chat"
     BroadcastMessage MessageType = "broadcast"
-    DMsMessage MessageType = "dm"
-    WhisperMessage MessageType = "whisper"
-	ErrorMessage MessageType = "error"
-	PingMessage    MessageType = "ping"
-	PongMessage    MessageType = "pong"
+    DMsMessage       MessageType = "dm"
+    WhisperMessage   MessageType = "whisper"
+	ErrorMessage     MessageType = "error"
+	PingMessage      MessageType = "ping"
+	PongMessage      MessageType = "pong"
+	FileMessage      MessageType = "file"
+	FileShareMessage MessageType = "file_share"
 )
 
 type Envelope struct {
@@ -79,6 +81,20 @@ type ErrorPayload struct{
 type PingPayload struct{}
 type PongPayload struct{}
 
+// FilePayload is sent client→server when uploading a file.
+type FilePayload struct {
+	Name string `json:"name"` // original filename (basename only)
+	Data string `json:"data"` // base64-encoded file contents
+}
+
+// FileSharePayload is broadcast server→clients when a file is shared.
+type FileSharePayload struct {
+	From uuid.UUID `json:"from"`
+	Name string    `json:"name"`
+	Size int64     `json:"size"` // decoded byte count (approx from base64 length)
+	Data string    `json:"data"` // base64-encoded file contents
+}
+
 type Payload interface{
 	RegisterPayload |
 	JoinPayload |
@@ -90,5 +106,7 @@ type Payload interface{
 	WhisperPayload |
 	ErrorPayload |
 	PingPayload |
-	PongPayload
+	PongPayload |
+	FilePayload |
+	FileSharePayload
 }
