@@ -91,7 +91,8 @@ var registry = map[string]Command{
 	"save": {
 		Usage: "save <filename>",
 		Help:  "save a received file to ~/Downloads/lol/",
-		Args:  1,
+		Args:  0,
+		Tail:  true,
 		Run:   cmdSave,
 		Complete: func(m ClientModel, _ []string, partial string) []string {
 			names := m.client.BufferedFileNames()
@@ -218,6 +219,8 @@ func cmdUpload(m ClientModel, _ []string, tail string) (ClientModel, tea.Cmd) {
 // parseInputForCompletion extracts the command name, already-confirmed args, and
 // the partial token currently being typed. inArgs is false when still completing
 // the command name itself.
+// For Tail-only commands (Args==0, Tail==true) the whole rest string is treated
+// as a single partial so completions work on names that contain spaces.
 func parseInputForCompletion(input string) (cmdName string, confirmedArgs []string, partial string, inArgs bool) {
 	if !strings.HasPrefix(input, "/") {
 		return
@@ -230,6 +233,14 @@ func parseInputForCompletion(input string) (cmdName string, confirmedArgs []stri
 	inArgs = true
 	cmdName = after[:spaceIdx]
 	rest := after[spaceIdx+1:]
+
+	// Tail-only commands treat the entire rest as one argument.
+	if cmd, ok := registry[cmdName]; ok && cmd.Tail && cmd.Args == 0 {
+		confirmedArgs = nil
+		partial = rest
+		return
+	}
+
 	if strings.HasSuffix(rest, " ") || rest == "" {
 		confirmedArgs = strings.Fields(rest)
 		partial = ""
@@ -254,12 +265,24 @@ func argCompletions(m ClientModel, input string) []string {
 	return cmd.Complete(m, confirmedArgs, partial)
 }
 
-// applyCompletion replaces the partial token at the end of input with suggestion.
+// applyCompletion replaces the partial at the end of input with suggestion.
+// For Tail-only commands it replaces everything after the command name so
+// multi-word suggestions (filenames with spaces) are applied correctly.
 func applyCompletion(input, suggestion string) string {
-	idx := strings.LastIndexByte(input, ' ')
-	if idx < 0 {
+	if !strings.HasPrefix(input, "/") {
 		return input
 	}
+	after := input[1:]
+	spaceIdx := strings.IndexRune(after, ' ')
+	if spaceIdx < 0 {
+		return input
+	}
+	cmdName := after[:spaceIdx]
+	if cmd, ok := registry[cmdName]; ok && cmd.Tail && cmd.Args == 0 {
+		// Replace everything after "/cmdname " with the suggestion.
+		return input[:1+spaceIdx+1] + suggestion
+	}
+	idx := strings.LastIndexByte(input, ' ')
 	return input[:idx+1] + suggestion
 }
 
@@ -299,9 +322,13 @@ func listPathSuggestions(partial string) []string {
 	return out
 }
 
-func cmdSave(m ClientModel, args []string, _ string) (ClientModel, tea.Cmd) {
+func cmdSave(m ClientModel, _ []string, tail string) (ClientModel, tea.Cmd) {
 	ts := time.Now().Format("15:04")
-	name := args[0]
+	name := strings.TrimSpace(tail)
+	if name == "" {
+		m = addMessage(m, "System", "Usage: /save <filename>", ts, false, message_bubble.KindSystem)
+		return m, nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		home = "."
