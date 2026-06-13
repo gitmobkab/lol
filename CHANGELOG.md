@@ -5,6 +5,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-06-13
+
+### Added
+
+- File sharing: `/upload [path]` sends a file to all connected peers (max 10 MB); omitting the path opens an interactive file picker
+- `/save <filename>` downloads a received file to `~/Downloads/lol/`
+- Drag-and-drop: dropping a file onto the terminal pre-fills `/upload <path>` in the input
+- Command argument completion: Tab now completes arguments in addition to command names — file-system paths for `/upload`, buffered filenames for `/save`, `name#shortid` for `/dm`, theme names for `/theme`
+- Rate limiting: per-IP connection limit (1 new connection/sec, burst 3) and per-client message limit (10 msg/sec, burst 20) to prevent flooding
+- All message senders now display `name#shortid` for unambiguous identification when multiple users share the same hostname
+
+### Changed
+
+- Tab key completes the current argument or command name before falling back to toggling scroll mode
+- Help bar reflects the updated Tab behaviour: `tab: complete/scroll`
+
+### Fixed
+
+- `/save` now handles filenames that contain spaces
+- `/dm` completions include `#shortid` to avoid ambiguity with duplicate names
+
 ## [0.1.2] - 2026-06-12
 
 ### Fixed

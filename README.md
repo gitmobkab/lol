@@ -64,21 +64,41 @@ lol update --no-changelog
 | `enter` | Send message |
 | `shift+enter` | New line |
 | `↑` / `↓` | Browse sent message history |
-| `esc` | Enter scroll mode (scroll through chat) |
-| `esc` / `tab` | Exit scroll mode |
-| `ctrl+q` | Quit |
+| `tab` | Complete current argument or command name; toggles scroll mode when nothing to complete |
+| `↑` / `↓` (scroll mode) | Scroll through chat history |
+| `esc` / `q` / `ctrl+c` (scroll mode) | Quit |
 
 ## Commands
 
-Type `/` in the input to see the autocomplete overlay.
+Type `/` in the input to see the autocomplete overlay. Press `tab` to apply the highlighted suggestion.
 
 | Command | Description |
 |---------|-------------|
 | `/ping` | Ping the server — replies with Pong |
 | `/dm <user> <message>` | Send a direct message |
+| `/theme <name>` | Switch color theme (`dark`, `dracula`, `nord`) |
+| `/upload [path]` | Send a file to all peers (max 10 MB); omit path to open a file picker |
+| `/save <filename>` | Save a received file to `~/Downloads/lol/` |
 | `/die` | Quit the app |
 
 For DMs with name collisions, append the short ID: `/dm alice#a3f2c1 hey`.
+
+## File sharing
+
+```
+# Send a file (tab-completes paths)
+/upload /path/to/photo.png
+
+# Open the interactive file picker
+/upload
+
+# Drag a file onto the terminal window — the input is pre-filled automatically
+
+# Save a received file (tab-completes buffered filenames)
+/save photo.png
+```
+
+Files are saved to `~/Downloads/lol/`. The maximum file size is 10 MB.
 
 ## Build from source
 
