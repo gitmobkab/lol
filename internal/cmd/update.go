@@ -66,6 +66,26 @@ The version should be in semantic versioning format (e.g., 1.2.3).
 			return nil
 		}
 
+		if !noChangelog {
+			notes := release.ReleaseNotes
+			if notes == "" {
+				notes = "No Changelog Notes"
+			}
+			fullNotes := fmt.Sprintf("\nWhat's new in %s:\n\n%s\n", release.Version(), notes)
+			markdownModel := markdown_viewer.NewMarkdownViewer(fullNotes)
+			if _, err := tea.NewProgram(markdownModel).Run(); err != nil {
+				return err
+			}
+		}
+
+		fmt.Printf("Perform update %s → %s? [y/N]: ", data.Version, release.Version())
+		var answer string
+		fmt.Scanln(&answer)
+		if answer != "y" && answer != "Y" {
+			fmt.Println("Update cancelled.")
+			return nil
+		}
+
 		exePath, err := os.Executable()
 		if err != nil {
 			return fmt.Errorf("could not resolve executable path: %w", err)
@@ -77,12 +97,6 @@ The version should be in semantic versioning format (e.g., 1.2.3).
 		}
 
 		fmt.Println("Done. Run `lol --version` to confirm.")
-		if !noChangelog && release.ReleaseNotes != "" {
-			full_notes := fmt.Sprintf("\nWhat's new in %s:\n\n%s\n", release.Version(), release.ReleaseNotes)
-			markdown_model := markdown_viewer.NewMarkdownViewer(full_notes)
-			_, err := tea.NewProgram(markdown_model).Run()
-			return err
-		}
 		return nil
 	},
 }
@@ -95,6 +109,6 @@ func normalizeVersion(v string) string {
 }
 
 func init() {
-	updateCmd.Flags().BoolVarP(&noChangelog, "no-changelog", "n", false, "skip printing the changelog after a successful update")
+	updateCmd.Flags().BoolVarP(&noChangelog, "no-changelog", "n", false, "skip showing the changelog before updating")
 	rootCmd.AddCommand(updateCmd)
 }
