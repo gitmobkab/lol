@@ -6,6 +6,7 @@ import (
 	"os"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	selfupdate "github.com/creativeprojects/go-selfupdate"
 	"github.com/spf13/cobra"
 
@@ -92,6 +93,11 @@ The version should be in semantic versioning format (e.g., 1.2.3).
 		}
 
 		fmt.Printf("Updating %s → %s...\n", data.Version, release.Version())
+		hint := lipgloss.NewStyle().
+			Foreground(lipgloss.BrightBlack).
+			Background(lipgloss.White).
+			Render("This might takes usually no more than 2 minutes")
+		fmt.Println(hint)
 		if err := updater.UpdateTo(ctx, release, exePath); err != nil {
 			return fmt.Errorf("update failed: %w", err)
 		}
